@@ -1,0 +1,22 @@
+services:
+  catalog:
+    build: .
+    image: museum-catalog-index:latest
+    container_name: museum-catalog
+    ports:
+      - "8000:8000"
+    environment:
+      DB_PATH: /data/catalog.db
+      SECRET_KEY: ${SECRET_KEY:-please-change-this-secret-in-production}
+    volumes:
+      - catalog-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4); sys.exit(0 if r.status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  catalog-data:

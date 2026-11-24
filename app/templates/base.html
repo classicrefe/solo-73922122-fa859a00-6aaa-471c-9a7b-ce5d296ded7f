@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}合作馆图版供数台{% endblock %}</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%231f3a5f'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='%23e8b04b' font-family='sans-serif' font-weight='bold'%3E%E5%9B%BE%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="{{ url_for('main.dashboard') }}">
+      <span class="brand-mark">图</span>
+      <span>
+        <strong>合作馆图版供数台</strong>
+        <small>引用链完整性 · 已发布索引 v{{ active_version if active_version is defined else '' }}</small>
+      </span>
+    </a>
+    <nav class="nav">
+      <a href="{{ url_for('main.dashboard') }}">供数总览</a>
+      <a href="{{ url_for('main.upload_page') }}">上传 / 补录 CSV</a>
+      <a href="{{ url_for('main.download_csv') }}" class="nav-cta">下载供数 CSV</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flashes">
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    供数 CSV 直接读取 SQLite 中的已发布索引版本；图版改动与索引在同一事务生效，失败整体回滚、仍供原索引。
+  </div>
+</footer>
+</body>
+</html>

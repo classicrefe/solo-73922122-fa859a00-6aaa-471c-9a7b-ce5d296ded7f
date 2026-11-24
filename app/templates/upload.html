@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}上传 / 补录 CSV · 合作馆图版供数台{% endblock %}
+{% block content %}
+
+<section class="panel">
+  <h1>上传图版 CSV（分批入库 / 补录 / 同号整条替换）</h1>
+  <p class="muted">
+    每行包含 <strong>图版号、题名、引用号列表</strong> 三列；引用号之间可用
+    <code>;</code>、<code>|</code>、<code>,</code>（字段需加引号）、中文逗号或空格分隔，
+    也支持 <code>引用号1,引用号2,…</code> 的宽表。图版号已存在时，该号整行（含原引用列表）被新内容整条替换。
+    整批在一个事务内生效：任何一行校验失败或入库异常，全部不写入，网站继续供原索引。
+  </p>
+
+  <div class="grid-two">
+    <form method="post" action="{{ url_for('main.upload_submit') }}"
+          enctype="multipart/form-data" class="upload-form">
+      <label class="field">
+        <span>选择 CSV 文件（支持 UTF-8 / 带 BOM / GBK）</span>
+        <input type="file" name="csv_file" accept=".csv,text/csv,text/plain">
+      </label>
+      <p class="or">— 或者 —</p>
+      <label class="field">
+        <span>直接粘贴 CSV 内容</span>
+        <textarea name="csv_text" rows="10"
+                  placeholder="图版号,题名,引用号&#10;TP-001,彩陶纹样一,TP-002;TP-003&#10;TP-002,彩陶纹样二,"></textarea>
+      </label>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">校验并入库</button>
+        <a class="btn btn-ghost" href="{{ url_for('static', filename='sample_catalog.csv') }}">下载样例 CSV</a>
+        <a class="btn btn-link" href="{{ url_for('main.dashboard') }}">返回总览</a>
+      </div>
+    </form>
+
+    <aside class="help-box">
+      <h3>入库后如何判定供数？</h3>
+      <ul>
+        <li>引用号都能在库中找到、且被引用图版本身可供 → 本件供数。</li>
+        <li>引用了尚未入库的号（缺件）→ 本件暂缓。</li>
+        <li>撤下某件后，直接或间接引用它的图版一并暂缓。</li>
+        <li>补录缺件后，所有相关图版在下一次入库重算时自动恢复。</li>
+        <li>互相引用且闭环内无缺件的一组图版会一同供出。</li>
+        <li>只重算与变动号在“变动前后引用并集、方向不限”意义下连通的部分。</li>
+      </ul>
+      <h3>CSV 示例</h3>
+      <pre>图版号,题名,引用号
+TP-001,彩陶纹样图版一,TP-002;TP-003
+TP-002,彩陶纹样图版二,
+TP-003,青铜纹饰图版,TP-002</pre>
+    </aside>
+  </div>
+</section>
+
+{% if parse_result is not none and not parse_result.ok %}
+<section class="panel panel-error">
+  <h2>CSV 校验未通过，整批未入库（原索引不受影响）</h2>
+  <ul class="error-list">
+    {% for e in parse_result.errors %}
+      <li>{% if e.line_no %}第 {{ e.line_no }} 行：{% endif %}{{ e.message }}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% endblock %}

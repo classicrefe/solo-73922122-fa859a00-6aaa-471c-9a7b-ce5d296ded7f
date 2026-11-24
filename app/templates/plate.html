@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ number }} · 图版详情{% endblock %}
+{% block content %}
+
+<section class="panel">
+  <p><a href="{{ url_for('main.dashboard') }}">← 返回总览</a></p>
+
+  {% if plate %}
+    <h1 class="mono">{{ plate.number }}
+      {% if status and status.state == 'serving' %}
+        <span class="badge badge-ok">供数中</span>
+      {% elif status %}
+        <span class="badge badge-warn">暂缓供数</span>
+      {% endif %}
+    </h1>
+    <p class="title-large">{{ plate.title or '（未填题名）' }}</p>
+    <p class="muted">入库时间 {{ plate.created_at }} ｜ 最近更新 {{ plate.updated_at }}</p>
+
+    {% if status and status.state == 'suspended' %}
+      <div class="alert alert-warn">
+        <strong>暂缓原因：</strong>{{ status.reason }}
+        <div class="chain chain-large">
+          {% for n in status.witness_list %}
+            <a class="chain-node {{ 'chain-missing' if loop.last else '' }}"
+               href="{{ url_for('main.plate_detail', n=n) }}">{{ n }}{% if loop.last %}（缺件）{% endif %}</a>
+            {% if not loop.last %}<span class="chain-arrow">→</span>{% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <div class="alert alert-ok">该图版的完整引用链上没有缺件，已进入当前发布索引。</div>
+    {% endif %}
+
+    <div class="grid-two">
+      <div>
+        <h2>直接引用（{{ outgoing|length }}）</h2>
+        {% if outgoing %}
+        <table>
+          <thead><tr><th>引用号</th><th>状态</th></tr></thead>
+          <tbody>
+            {% for r in outgoing %}
+            <tr>
+              <td class="mono"><a href="{{ url_for('main.plate_detail', n=r.number) }}">{{ r.number }}</a></td>
+              <td>
+                {% if r.state == 'serving' %}<span class="badge badge-ok">供数</span>
+                {% elif r.state == 'suspended' %}<span class="badge badge-warn">暂缓</span>
+                {% else %}<span class="badge badge-bad">缺件 / 已撤下</span>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<p class="muted">无引用。</p>{% endif %}
+      </div>
+      <div>
+        <h2>被以下图版引用（{{ incoming|length }}）</h2>
+        {% if incoming %}
+        <table>
+          <thead><tr><th>来源图版</th><th>状态</th></tr></thead>
+          <tbody>
+            {% for r in incoming %}
+            <tr>
+              <td class="mono"><a href="{{ url_for('main.plate_detail', n=r.number) }}">{{ r.number }}</a></td>
+              <td>
+                {% if r.state == 'serving' %}<span class="badge badge-ok">供数</span>
+                {% elif r.state == 'suspended' %}<span class="badge badge-warn">暂缓</span>
+                {% else %}<span class="badge badge-bad">{{ r.state }}</span>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<p class="muted">没有图版引用本件。</p>{% endif %}
+      </div>
+    </div>
+
+    <form method="post" action="{{ url_for('main.withdraw_submit') }}" class="inline"
+          onsubmit="return confirm('确定撤下 {{ plate.number }}？直接/间接引用它的图版将一并暂缓。');">
+      <input type="hidden" name="number" value="{{ plate.number }}">
+      <button class="btn btn-danger" type="submit">按号撤下此图版</button>
+    </form>
+
+  {% elif missing_view %}
+    <h1 class="mono">{{ number }} <span class="badge badge-bad">缺失引用号</span></h1>
+    <div class="alert alert-bad">
+      该号目前没有图版记录（从未补录，或已被撤下）。补录此号后，下列引用它的图版会在同一次重算中自动恢复（若其引用链其余部分齐备）。
+    </div>
+    <h2>引用此缺件的图版（{{ missing_view.referrers|length }}）</h2>
+    {% if missing_view.referrers %}
+      <p>
+        {% for r in missing_view.referrers %}
+          <a class="ref-chip ref-bad" href="{{ url_for('main.plate_detail', n=r) }}">{{ r }}</a>
+        {% endfor %}
+      </p>
+    {% else %}<p class="muted">当前没有在库图版引用此号。</p>{% endif %}
+    <a class="btn btn-primary" href="{{ url_for('main.upload_page') }}">去上传 CSV 补录</a>
+  {% else %}
+    <h1>未找到 {{ number }}</h1>
+  {% endif %}
+</section>
+
+{% endblock %}

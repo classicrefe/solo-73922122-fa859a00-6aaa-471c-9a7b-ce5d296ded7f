@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}供数总览 · 合作馆图版供数台{% endblock %}
+{% block content %}
+
+<section class="stats">
+  <div class="stat">
+    <span class="stat-num">{{ stats.total }}</span>
+    <span class="stat-label">在库图版</span>
+  </div>
+  <div class="stat stat-ok">
+    <span class="stat-num">{{ stats.serving }}</span>
+    <span class="stat-label">正常供数</span>
+  </div>
+  <div class="stat stat-warn">
+    <span class="stat-num">{{ stats.suspended }}</span>
+    <span class="stat-label">暂缓供数</span>
+  </div>
+  <div class="stat stat-bad">
+    <span class="stat-num">{{ stats.missing }}</span>
+    <span class="stat-label">缺失引用号</span>
+  </div>
+  <div class="stat stat-ver">
+    <span class="stat-num">v{{ active_version }}</span>
+    <span class="stat-label">已发布索引 · {{ version_row.created_at if version_row else '' }}</span>
+  </div>
+</section>
+
+<section class="panel actions">
+  <div class="action-main">
+    <a class="btn btn-primary" href="{{ url_for('main.upload_page') }}">上传 CSV（补录 / 同号整条替换）</a>
+    <a class="btn btn-ghost" href="{{ url_for('main.download_csv') }}">下载已发布索引 CSV</a>
+    <a class="btn btn-ghost" href="{{ url_for('static', filename='sample_catalog.csv') }}">下载样例 CSV</a>
+    <form method="post" action="{{ url_for('main.load_demo') }}" class="inline"
+          onsubmit="return confirm('将写入内置演示图版（同号会整条替换），确定？');">
+      <button class="btn btn-link" type="submit">载入内置演示数据</button>
+    </form>
+  </div>
+  <form method="post" action="{{ url_for('main.withdraw_submit') }}" id="withdraw" class="withdraw-box">
+    <label for="numbers"><strong>按号撤下：</strong>多个号可用换行、空格、逗号或分号分隔</label>
+    <div class="withdraw-row">
+      <textarea id="numbers" name="numbers" rows="1"
+                placeholder="例如 TP-003&#10;TP-007"></textarea>
+      <button class="btn btn-danger" type="submit">撤下这些图版</button>
+    </div>
+  </form>
+</section>
+
+{% if latest_change %}
+<section class="panel scope-panel">
+  <h2>最近一次变动的增量重算范围</h2>
+  <p class="muted">{{ latest_change.created_at }} ·
+    动作「{{ '撤下' if latest_change.action == 'withdraw' else '上传/补录' }}」 ·
+    {{ latest_change.detail }}</p>
+  <div class="chip-row">
+    <span class="chip chip-changed">变动号</span>
+    {% for n in latest_change.changed_json | from_json %}
+      <a class="chip" href="{{ url_for('main.plate_detail', n=n) }}">{{ n }}</a>
+    {% endfor %}
+  </div>
+  <div class="chip-row">
+    <span class="chip chip-scope">连通圈定（变动前后引用合并、方向不限）</span>
+    {% for n in latest_change.scope_json | from_json %}
+      <a class="chip chip-scope-item" href="{{ url_for('main.plate_detail', n=n) }}">{{ n }}</a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<nav class="anchor-nav">
+  <a href="#serving">供数图版（{{ serving|length }}）</a>
+  <a href="#suspended">暂缓图版（{{ suspended|length }}）</a>
+  <a href="#missing">缺件引用号（{{ missing|length }}）</a>
+  <a href="#versions">索引版本</a>
+</nav>
+
+<section class="panel" id="serving">
+  <h2>✅ 正在供数的图版 <small>即已发布索引 v{{ active_version }}，下载 CSV 直接读此表</small></h2>
+  {% if serving %}
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>图版号</th><th>题名</th><th>引用号列表</th><th>操作</th></tr></thead>
+    <tbody>
+      {% for p in serving %}
+      <tr>
+        <td class="mono"><a href="{{ url_for('main.plate_detail', n=p.number) }}">{{ p.number }}</a></td>
+        <td>{{ p.title }}</td>
+        <td>
+          {% for r in p.refs %}
+            <a class="ref-chip ref-ok" href="{{ url_for('main.plate_detail', n=r) }}">{{ r }}</a>
+          {% else %}<span class="muted">（无引用）</span>{% endfor %}
+        </td>
+        <td>
+          <form method="post" action="{{ url_for('main.withdraw_submit') }}" class="inline"
+                onsubmit="return confirm('确定撤下 {{ p.number }}？直接/间接引用它的图版将一并暂缓。');">
+            <input type="hidden" name="number" value="{{ p.number }}">
+            <button class="btn btn-small btn-danger-outline" type="submit">撤下</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="empty">当前已发布索引为空：还没有引用链完整的图版。请先<a href="{{ url_for('main.upload_page') }}">上传 CSV</a>。</p>
+  {% endif %}
+</section>
+
+<section class="panel" id="suspended">
+  <h2>⏸ 暂缓供数的图版 <small>自身或其引用链上存在缺件；补齐后下次上传自动恢复</small></h2>
+  {% if suspended %}
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>图版号</th><th>题名</th><th>断链路径 / 原因</th><th>操作</th></tr></thead>
+    <tbody>
+      {% for p in suspended %}
+      <tr class="row-suspended">
+        <td class="mono"><a href="{{ url_for('main.plate_detail', n=p.number) }}">{{ p.number }}</a>
+          <span class="badge badge-warn">暂缓</span></td>
+        <td>{{ p.title }}</td>
+        <td>
+          <div class="chain">
+            {% for n in p.witness %}
+              <a class="chain-node {{ 'chain-missing' if loop.last else '' }}"
+                 href="{{ url_for('main.plate_detail', n=n) }}">{{ n }}{% if loop.last %}（缺件）{% endif %}</a>
+              {% if not loop.last %}<span class="chain-arrow">→</span>{% endif %}
+            {% endfor %}
+          </div>
+          <p class="muted small">{{ p.reason }}</p>
+        </td>
+        <td>
+          <form method="post" action="{{ url_for('main.withdraw_submit') }}" class="inline"
+                onsubmit="return confirm('确定撤下 {{ p.number }}？');">
+            <input type="hidden" name="number" value="{{ p.number }}">
+            <button class="btn btn-small btn-danger-outline" type="submit">撤下</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="empty">没有暂缓图版，所有在库图版的引用链均完整。</p>
+  {% endif %}
+</section>
+
+<section class="panel" id="missing">
+  <h2>🧩 缺失的引用号 <small>被引用但尚未入库（或已被撤下）的号；补录后相关图版自动恢复</small></h2>
+  {% if missing %}
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>缺失号</th><th>引用它的在库图版</th></tr></thead>
+    <tbody>
+      {% for m in missing %}
+      <tr class="row-missing">
+        <td class="mono"><a href="{{ url_for('main.plate_detail', n=m.number) }}">{{ m.number }}</a>
+          <span class="badge badge-bad">缺件</span></td>
+        <td>
+          {% for r in m.referrers %}
+            <a class="ref-chip ref-bad" href="{{ url_for('main.plate_detail', n=r) }}">{{ r }}</a>
+          {% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="empty">没有缺失引用号，索引中不存在断链。</p>
+  {% endif %}
+</section>
+
+<section class="panel" id="versions">
+  <h2>🗂 已发布索引版本</h2>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>版本</th><th>发布时间</th><th>来源</th><th>重算节点数</th><th>可供件数</th><th>状态</th></tr></thead>
+    <tbody>
+      {% for v in recent_versions %}
+      <tr>
+        <td class="mono">v{{ v.version }}</td>
+        <td>{{ v.created_at }}</td>
+        <td>{{ v.source }}</td>
+        <td>{{ v.recomputed }}</td>
+        <td>{{ v.serving_count }}</td>
+        <td>{% if v.version == active_version %}<span class="badge badge-ok">当前供数</span>{% else %}<span class="muted">历史</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+{% endblock %}

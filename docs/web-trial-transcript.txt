@@ -1,0 +1,54 @@
+== 0. health ==
+{"active_index_version":1,"status":"ok"}
+
+== 1. upload batch1 ==
+final HTTP 200
+已整号替换/补录 5 行。变动 5 个号；连通圈定 6 个节点；重算现存图版 5 个；发布索引 v2，可供 3 件。
+== 2. state after batch1 ==
+v2 stats={'missing': 1, 'serving': 3, 'suspended': 2, 'total': 5} serving=['A2', 'B1', 'B2'] suspended=['A1', 'A3'] missing=['A4']
+scope=['A1', 'A2', 'A3', 'A4', 'B1', 'B2']
+== 3. download published CSV ==
+Content-Type: text/csv; charset=utf-8
+X-Index-Version: 2
+﻿图版号,题名,引用号
+A2,彩陶盆单件,
+B1,青铜器综述,B2
+B2,鼎单件,
+== 4. malformed CSV must be 422 and index stays same ==
+POST bad.csv -> HTTP 422 ; index before=v2 after=v2
+CSV 校验未通过，整批未入库
+== 5. 补录 A4 ==
+stats={'missing': 0, 'serving': 6, 'suspended': 0, 'total': 6}
+连通圈定（变动前后引用合并、方向不限）
+== 6. 撤下 A3 via row form ==
+HTTP 200
+serving=['A2', 'A4', 'B1', 'B2'] suspended=['A1'] missing=['A3']
+已撤下 1 个号；直接/间接引用它们的图版已同步退出供数。变动 1 个号；连通圈定 4 个节点；重算现存图版 3 个；发布索引 v4，可供 4 件。
+== 7. download after withdraw ==
+Content-Disposition: attachment; filename=published_index_v4.csv
+﻿图版号,题名,引用号
+A2,彩陶盆单件,
+A4,补录的人面鱼纹残片,A2
+B1,青铜器综述,B2
+B2,鼎单件,
+== 8. refill A3 (multipart) -> auto recover ==
+HTTP 200
+stats={'missing': 0, 'serving': 6, 'suspended': 0, 'total': 6}
+== 9. final download ==
+﻿图版号,题名,引用号
+A1,彩陶纹样总录,A2;A3
+A2,彩陶盆单件,
+A3,鱼纹盆（修订）,A4
+A4,补录的人面鱼纹残片,A2
+B1,青铜器综述,B2
+B2,鼎单件,
+== 10. pages render ==
+GET / -> 200
+GET /upload -> 200
+GET /plate?n=A1 -> 200
+GET /plate?n=A4 -> 200
+== 11. downloaded CSV vs SQLite active index ==
+download1.csv vs v2: MATCH (3 rows)
+download2.csv vs v4: MATCH (4 rows)
+download3.csv vs v5: MATCH (6 rows)
+ALL CSV/INDEX CONSISTENCY CHECKS PASSED; active = v5

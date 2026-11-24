@@ -1,0 +1,30 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.2, pytest-9.2.0, pluggy-1.7.0 -- /usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /workspace
+configfile: pyproject.toml
+testpaths: tests
+collecting ... collected 20 items
+
+tests/test_catalog_graph.py::test_missing_piece_suspends_direct_and_transitive_referrers PASSED [  5%]
+tests/test_catalog_graph.py::test_mutual_reference_cycle_fully_available PASSED [ 10%]
+tests/test_catalog_graph.py::test_cycle_reaching_missing_is_suspended PASSED [ 15%]
+tests/test_catalog_graph.py::test_withdraw_suspends_referrers_then_refill_recovers PASSED [ 20%]
+tests/test_catalog_graph.py::test_same_number_is_whole_record_replacement PASSED [ 25%]
+tests/test_catalog_graph.py::test_scope_is_undirected_union_of_old_and_new_edges PASSED [ 30%]
+tests/test_catalog_graph.py::test_failed_apply_rolls_back_plates_and_keeps_old_index PASSED [ 35%]
+tests/test_parsing.py::test_split_refs_separators_and_dedupe PASSED      [ 40%]
+tests/test_parsing.py::test_parse_numbers_supports_comments_and_separators PASSED [ 45%]
+tests/test_parsing.py::test_parse_standard_header_semicolon PASSED       [ 50%]
+tests/test_parsing.py::test_parse_quoted_comma_refs PASSED               [ 55%]
+tests/test_parsing.py::test_parse_wide_ref_columns PASSED                [ 60%]
+tests/test_parsing.py::test_parse_headerless_positional PASSED           [ 65%]
+tests/test_parsing.py::test_parse_duplicate_number_last_wins_with_warning PASSED [ 70%]
+tests/test_parsing.py::test_parse_missing_number_is_error PASSED         [ 75%]
+tests/test_parsing.py::test_parse_gbk_encoding PASSED                    [ 80%]
+tests/test_web_flows.py::test_health_and_empty_dashboard PASSED          [ 85%]
+tests/test_web_flows.py::test_upload_view_download_withdraw_recover PASSED [ 90%]
+tests/test_web_flows.py::test_invalid_csv_rejected_and_index_unchanged PASSED [ 95%]
+tests/test_web_flows.py::test_withdraw_multiple_numbers_textarea PASSED  [100%]
+
+============================== 20 passed in 0.65s ==============================

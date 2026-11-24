@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Local SQLite data (container uses the /data volume)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Trial / scratch output
+/trial-output/
